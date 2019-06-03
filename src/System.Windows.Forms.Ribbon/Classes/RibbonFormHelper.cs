@@ -12,6 +12,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
+using System.Security.Permissions;
 using System.Windows.Forms.RibbonHelpers;
 
 namespace System.Windows.Forms
@@ -162,11 +163,20 @@ namespace System.Windows.Forms
 
                 using (Brush b = new SolidBrush(Form.BackColor))
                 {
+                    int left;
+                    int right;
+                    if (WinApi.IsWin10) {
+                        left = 0;
+                        right = Form.Width;
+                    } else {
+                        left = Margins.Left - 0;
+                        right = Form.Width - Margins.Right - 0;
+                    }
                     e.Graphics.FillRectangle(b,
                         Rectangle.FromLTRB(
-                            Margins.Left - 0,
+                            left,
                             Margins.Top + 0,
-                            Form.Width - Margins.Right - 0,
+                            right,
                             Form.Height - Margins.Bottom - 0));
                 }
 
@@ -268,6 +278,7 @@ namespace System.Windows.Forms
         /// </summary>
         /// <param name="m">Message to process</param>
         /// <returns><c>true</c> if message has been handled. <c>false</c> otherwise</returns>
+        [SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
         public virtual bool WndProc(ref Message m)
         {
             if (DesignMode) return false;
@@ -348,6 +359,17 @@ namespace System.Windows.Forms
                 {
                     m.Result = new IntPtr(Convert.ToInt32(NonClientHitTest(new Point(WinApi.LoWord((int)m.LParam), WinApi.HiWord((int)m.LParam)))));
                     handled = true;
+                }
+                else if (m.Msg == WinApi.WM_NCRBUTTONUP) //0x00A5
+                {
+                    int xMouse = WinApi.Get_X_LParam((int)m.LParam);
+                    int yMouse = WinApi.Get_Y_LParam((int)m.LParam);
+                    int hitTest = WinApi.LoWord((int)m.WParam);
+                    if (hitTest == (int)WinApi.HitTest.HTCAPTION || hitTest == (int)WinApi.HitTest.HTSYSMENU)
+                    {
+                        WinApi.ShowSystemMenu(Form, xMouse, yMouse);
+                        handled = true;
+                    }
                 }
                 else if (m.Msg == WinApi.WM_SYSCOMMAND)
                 {
@@ -450,9 +472,9 @@ namespace System.Windows.Forms
             {
                 if (WinApi.IsWin10)
                 {
-                    formPadding.Left = 1;
-                    formPadding.Right = 1;
-                    formPadding.Bottom = 1;
+                    formPadding.Left = 0;
+                    formPadding.Right = 0;
+                    formPadding.Bottom = 0;
                 }
 
                 Form.Padding = formPadding;
